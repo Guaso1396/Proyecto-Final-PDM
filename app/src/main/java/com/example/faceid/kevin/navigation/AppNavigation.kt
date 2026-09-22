@@ -11,6 +11,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.faceid.diana.authentication.ChangePinScreen
+import com.example.faceid.diana.authentication.CreatePinScreen
+import com.example.faceid.diana.authentication.EnterPinScreen
 import com.example.faceid.fabian.apps.AppsScreen
 import com.example.faceid.kevin.home.HomeScreen
 
@@ -40,16 +43,22 @@ fun AppNavigation() {
             AppsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.ENTER_PIN) {
-            PlaceholderScreen(title = "Ingresar PIN")
-            // TODO(diana): reemplazar con EnterPinScreen
+            EnterPinScreen(
+                onSuccess = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Routes.CREATE_PIN) {
-            PlaceholderScreen(title = "Crear PIN")
-            // TODO(diana): reemplazar con CreatePinScreen
+            CreatePinScreen(
+                onSuccess = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Routes.CHANGE_PIN) {
-            PlaceholderScreen(title = "Cambiar PIN")
-            // TODO(diana): reemplazar con ChangePinScreen
+            ChangePinScreen(
+                onSuccess = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             route = Routes.LOCK_WITH_APP,
