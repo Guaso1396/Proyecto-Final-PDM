@@ -1,11 +1,11 @@
 package com.example.faceid.kevin.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,6 +15,7 @@ import com.example.faceid.diana.authentication.ChangePinScreen
 import com.example.faceid.diana.authentication.CreatePinScreen
 import com.example.faceid.diana.authentication.EnterPinScreen
 import com.example.faceid.fabian.apps.AppsScreen
+import com.example.faceid.ganan.lock.LockScreen
 import com.example.faceid.kevin.home.HomeScreen
 
 object Routes {
@@ -28,13 +29,39 @@ object Routes {
     fun lock(packageName: String) = "lock/$packageName"
 }
 
+private const val ANIM_MS = 280
+
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME
+        startDestination = Routes.HOME,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { it / 4 },
+                animationSpec = tween(ANIM_MS)
+            ) + fadeIn(tween(ANIM_MS))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -it / 4 },
+                animationSpec = tween(ANIM_MS)
+            ) + fadeOut(tween(ANIM_MS))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -it / 4 },
+                animationSpec = tween(ANIM_MS)
+            ) + fadeIn(tween(ANIM_MS))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { it / 4 },
+                animationSpec = tween(ANIM_MS)
+            ) + fadeOut(tween(ANIM_MS))
+        }
     ) {
         composable(Routes.HOME) {
             HomeScreen(onNavigate = { route -> navController.navigate(route) })
@@ -63,19 +90,13 @@ fun AppNavigation() {
         composable(
             route = Routes.LOCK_WITH_APP,
             arguments = listOf(navArgument("packageName") { type = NavType.StringType })
-        ) {
-            PlaceholderScreen(title = "Pantalla de bloqueo")
-            // TODO(ganan): reemplazar con LockScreen
+        ) { backStackEntry ->
+            val pkg = backStackEntry.arguments?.getString("packageName").orEmpty()
+            LockScreen(
+                packageName = pkg,
+                onUnlocked = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = title)
     }
 }

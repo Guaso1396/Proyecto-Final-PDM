@@ -1,49 +1,55 @@
 package com.example.faceid.ganan.lock
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.faceid.diana.authentication.AuthHero
 import com.example.faceid.diana.biometric.BiometricAuthenticator
 import com.example.faceid.diana.biometric.BiometricResult
 import com.example.faceid.ganan.manager.LockManager
 import com.example.faceid.kevin.components.AppButton
-import com.example.faceid.kevin.components.AppCard
 import com.example.faceid.kevin.components.AppHeader
+import com.example.faceid.kevin.components.AuroraBackground
+import com.example.faceid.kevin.components.ErrorBanner
+import com.example.faceid.kevin.components.InfoBanner
 import com.example.faceid.kevin.components.LoadingIndicator
+import com.example.faceid.kevin.components.PinDots
+import com.example.faceid.kevin.components.PinKeypad
 import com.example.faceid.ui.theme.FACEIDTheme
 
-/**
- * Pantalla de bloqueo de Ganan (ruta `Routes.LOCK_WITH_APP` de Kevin).
- *
- * Integración en `kevin/navigation/AppNavigation.kt` (la aplica Kevin,
- * aquí solo se deja lista la API):
- * ```
- * composable(Routes.LOCK_WITH_APP, ...) { backStackEntry ->
- *     val pkg = backStackEntry.arguments?.getString("packageName").orEmpty()
- *     LockScreen(
- *         packageName = pkg,
- *         onUnlocked = { navController.popBackStack() },
- *         onBack = { navController.popBackStack() }
- *     )
- * }
- * ```
- */
 @Composable
 fun LockScreen(
     packageName: String,
@@ -67,9 +73,16 @@ fun LockScreen(
         }
     }
 
+    LaunchedEffect(state.pin) {
+        if (state.pin.length == 4 && state.result !is LockResult.Loading && state.pinConfigured) {
+            viewModel.verifyPin()
+        }
+    }
+
     LockContent(
         state = state,
-        onPinChange = viewModel::onPinChange,
+        onDigit = { d -> if (state.pin.length < 4) viewModel.onPinChange(state.pin + d) },
+        onDelete = { viewModel.onPinChange(state.pin.dropLast(1)) },
         onVerify = viewModel::verifyPin,
         onBiometric = {
             val activity = context as? FragmentActivity
@@ -97,61 +110,110 @@ fun LockScreen(
 @Composable
 private fun LockContent(
     state: LockUiState,
-    onPinChange: (String) -> Unit,
+    onDigit: (String) -> Unit,
+    onDelete: () -> Unit,
     onVerify: () -> Unit,
     onBiometric: () -> Unit,
     onBack: () -> Unit
 ) {
-    Scaffold(
-        topBar = { AppHeader(title = "App bloqueada", onBack = onBack) }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            AppCard(
-                title = state.appLabel.ifBlank { "App protegida" },
-                subtitle = state.packageName.ifBlank { "Verifica tu identidad" }
-            )
-            if (!state.pinConfigured) {
-                AppCard(
-                    title = "Sin PIN",
-                    subtitle = "Configura un PIN primero desde el inicio"
+    val isError = state.result is LockResult.Error
+    val isLoading = state.result is LockResult.Loading
+    AuroraBackground {
+        Scaffold(
+            topBar = { AppHeader(title = "App bloqueada", onBack = onBack) },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Spacer(modifier = Modifier.height(4.dp))
+                AuthHero(
+                    icon = Icons.Default.Lock,
+                    title = state.appLabel.ifBlank { "App protegida" },
+                    subtitle = if (state.packageName.isNotBlank()) state.packageName
+                    else "Verifica tu identidad para continuar"
                 )
-                return@Column
-            }
-            OutlinedTextField(
-                value = state.pin,
-                onValueChange = onPinChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("PIN") },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                singleLine = true
-            )
-            if (state.result is LockResult.Loading) {
-                LoadingIndicator()
-            }
-            if (state.result is LockResult.Error) {
-                AppCard(
-                    title = "Error",
-                    subtitle = (state.result as LockResult.Error).message
-                )
-            }
-            AppButton(
-                text = "Desbloquear",
-                onClick = onVerify,
-                enabled = state.pin.length == 4 && state.result !is LockResult.Loading
-            )
-            if (state.canUseBiometrics) {
-                AppButton(
-                    text = "Usar huella / rostro",
-                    onClick = onBiometric,
-                    isPrimary = false
-                )
+
+                // Pastilla de la app objetivo
+                if (state.appLabel.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f)
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "🔒  ${state.appLabel}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                if (!state.pinConfigured) {
+                    InfoBanner(
+                        title = "Sin PIN configurado",
+                        subtitle = "Configura un PIN primero desde el inicio para desbloquear apps."
+                    )
+                    return@Column
+                }
+
+                PinDots(length = state.pin.length, error = isError)
+
+                if (isLoading) {
+                    LoadingIndicator(modifier = Modifier.size(56.dp))
+                }
+                if (isError) {
+                    ErrorBanner(message = (state.result as LockResult.Error).message)
+                }
+
+                PinKeypad(onDigit = onDigit, onDelete = onDelete, enabled = !isLoading)
+
+                if (state.canUseBiometrics) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(onClick = onBiometric)
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fingerprint,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = "  Usar huella / rostro",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    AppButton(
+                        text = "Desbloquear",
+                        onClick = onVerify,
+                        enabled = state.pin.length == 4 && !isLoading
+                    )
+                }
             }
         }
     }
@@ -168,11 +230,11 @@ private fun LockScreenPreview() {
                 pin = "12",
                 canUseBiometrics = true
             ),
-            onPinChange = {},
+            onDigit = {},
+            onDelete = {},
             onVerify = {},
             onBiometric = {},
             onBack = {}
         )
     }
 }
-
