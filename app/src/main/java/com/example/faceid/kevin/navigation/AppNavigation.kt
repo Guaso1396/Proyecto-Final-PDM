@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.faceid.fabian.apps.AppsScreen
 import com.example.faceid.kevin.home.HomeScreen
 
 object Routes {
@@ -36,8 +37,7 @@ fun AppNavigation() {
             HomeScreen(onNavigate = { route -> navController.navigate(route) })
         }
         composable(Routes.APPS) {
-            PlaceholderScreen(title = "Apps protegidas")
-            // TODO(fabian): reemplazar con AppsScreen
+            AppsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.ENTER_PIN) {
             PlaceholderScreen(title = "Ingresar PIN")
