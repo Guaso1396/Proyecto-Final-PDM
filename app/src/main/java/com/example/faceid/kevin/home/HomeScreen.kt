@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pin
@@ -32,6 +33,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +43,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.faceid.kevin.components.AppHeader
 import com.example.faceid.kevin.components.AuroraBackground
@@ -57,10 +62,22 @@ fun HomeScreen(
     onNavigate: (String) -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     HomeContent(
         state = viewModel.uiState,
         onNavigate = onNavigate,
-        onToggleBiometrics = viewModel::onToggleBiometrics
+        onToggleBiometrics = viewModel::onToggleBiometrics,
+        onToggleLockActive = viewModel::onToggleLockActive
     )
 }
 
@@ -68,7 +85,8 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState,
     onNavigate: (String) -> Unit,
-    onToggleBiometrics: (Boolean) -> Unit
+    onToggleBiometrics: (Boolean) -> Unit,
+    onToggleLockActive: (Boolean) -> Unit
 ) {
     AuroraBackground {
         Scaffold(
@@ -170,6 +188,32 @@ private fun HomeContent(
                     subtitle = if (state.pinConfigured) "Configurado · 4 dígitos" else "Sin configurar",
                     checked = state.pinConfigured,
                     onChecked = null
+                )
+                SecurityRow(
+                    icon = Icons.Default.Face,
+                    title = "Registro facial",
+                    subtitle = if (state.faceEnrolled) {
+                        "Toca para actualizar o eliminar el rostro"
+                    } else {
+                        "Registra tu rostro para desbloqueo automático"
+                    },
+                    checked = state.faceEnrolled,
+                    onChecked = null,
+                    onClick = { onNavigate(Routes.FACE_ENROLL) }
+                )
+                SecurityRow(
+                    icon = Icons.Default.Lock,
+                    title = "Bloqueo de apps",
+                    subtitle = when {
+                        state.lockActive -> "Vigilancia activa"
+                        !state.hasUsagePermission ->
+                            "Otorga acceso de uso para activar el candado"
+                        !state.hasOverlayPermission ->
+                            "Otorga permiso de superposición para activar el candado"
+                        else -> "Activa para bloquear apps protegidas"
+                    },
+                    checked = state.lockActive,
+                    onChecked = onToggleLockActive
                 )
 
                 GradientDivider()
@@ -326,7 +370,8 @@ private fun SecurityRow(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onChecked: ((Boolean) -> Unit)?
+    onChecked: ((Boolean) -> Unit)?,
+    onClick: (() -> Unit)? = null
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(
@@ -334,6 +379,7 @@ private fun SecurityRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(scheme.surfaceColorAtElevation(2.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -393,7 +439,8 @@ private fun HomeScreenPreview() {
                 lockActive = true
             ),
             onNavigate = {},
-            onToggleBiometrics = {}
+            onToggleBiometrics = {},
+            onToggleLockActive = {}
         )
     }
 }
