@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.faceid.diana.authentication.AuthHero
 import com.example.faceid.diana.biometric.BiometricAuthenticator
 import com.example.faceid.diana.biometric.BiometricResult
+import com.example.faceid.diana.face.FaceCameraPreview
 import com.example.faceid.ganan.manager.LockManager
 import com.example.faceid.kevin.components.AppButton
 import com.example.faceid.kevin.components.AppHeader
@@ -84,6 +86,7 @@ fun LockScreen(
         onDigit = { d -> if (state.pin.length < 4) viewModel.onPinChange(state.pin + d) },
         onDelete = { viewModel.onPinChange(state.pin.dropLast(1)) },
         onVerify = viewModel::verifyPin,
+        onFaceDetected = viewModel::processFaceScan,
         onBiometric = {
             val activity = context as? FragmentActivity
             if (activity == null) {
@@ -113,11 +116,13 @@ private fun LockContent(
     onDigit: (String) -> Unit,
     onDelete: () -> Unit,
     onVerify: () -> Unit,
+    onFaceDetected: (android.graphics.Bitmap, android.graphics.Rect) -> Unit,
     onBiometric: () -> Unit,
     onBack: () -> Unit
 ) {
     val isError = state.result is LockResult.Error
     val isLoading = state.result is LockResult.Loading
+    val isUnlocked = state.result is LockResult.Success
     AuroraBackground {
         Scaffold(
             topBar = { AppHeader(title = "App bloqueada", onBack = onBack) },
@@ -137,8 +142,14 @@ private fun LockContent(
                 AuthHero(
                     icon = Icons.Default.Lock,
                     title = state.appLabel.ifBlank { "App protegida" },
-                    subtitle = if (state.packageName.isNotBlank()) state.packageName
-                    else "Verifica tu identidad para continuar"
+                    subtitle = when {
+                        isUnlocked -> "Desbloqueado"
+                        state.faceEnrolled ->
+                            "Solo el rostro registrado puede desbloquear."
+                        else -> state.packageName.ifBlank {
+                            "Verifica tu identidad para continuar"
+                        }
+                    }
                 )
 
                 // Pastilla de la app objetivo
@@ -164,7 +175,35 @@ private fun LockContent(
                     }
                 }
 
-                if (!state.pinConfigured) {
+                // Cámara en vivo + SOLO rostro registrado desbloquea.
+                // El PIN/huella de respaldo sigue visible debajo por si el
+                // match no llega (nunca se queda sin salida).
+                val showFace = state.faceEnrolled && !isUnlocked
+                if (showFace) {
+                    FaceCameraPreview(
+                        scanning = !isLoading && !isUnlocked,
+                        onFaceDetected = onFaceDetected,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(280.dp)
+                    )
+                    Text(
+                        text = when {
+                            isLoading -> "Verificando rostro…"
+                            state.faceMatches > 0 ->
+                                "Rostro reconocido ${state.faceMatches}/3 · mantén la mirada"
+                            else -> "Mira a la cámara · solo tu rostro registrado"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    if (isLoading) {
+                        LoadingIndicator(modifier = Modifier.size(48.dp))
+                    }
+                }
+
+                if (!state.pinConfigured && !state.faceEnrolled) {
                     InfoBanner(
                         title = "Sin PIN configurado",
                         subtitle = "Configura un PIN primero desde el inicio para desbloquear apps."
@@ -172,7 +211,9 @@ private fun LockContent(
                     return@Column
                 }
 
-                PinDots(length = state.pin.length, error = isError)
+                if (state.pinConfigured) {
+                    PinDots(length = state.pin.length, error = isError)
+                }
 
                 if (isLoading) {
                     LoadingIndicator(modifier = Modifier.size(56.dp))
@@ -181,7 +222,9 @@ private fun LockContent(
                     ErrorBanner(message = (state.result as LockResult.Error).message)
                 }
 
-                PinKeypad(onDigit = onDigit, onDelete = onDelete, enabled = !isLoading)
+                if (state.pinConfigured) {
+                    PinKeypad(onDigit = onDigit, onDelete = onDelete, enabled = !isLoading)
+                }
 
                 if (state.canUseBiometrics) {
                     Row(
@@ -207,7 +250,7 @@ private fun LockContent(
                             textAlign = TextAlign.Center
                         )
                     }
-                } else {
+                } else if (state.pinConfigured && !showFace) {
                     AppButton(
                         text = "Desbloquear",
                         onClick = onVerify,
@@ -233,6 +276,7 @@ private fun LockScreenPreview() {
             onDigit = {},
             onDelete = {},
             onVerify = {},
+            onFaceDetected = { _, _ -> },
             onBiometric = {},
             onBack = {}
         )

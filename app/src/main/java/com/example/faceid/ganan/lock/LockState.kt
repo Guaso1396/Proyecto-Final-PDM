@@ -11,7 +11,10 @@ data class LockUiState(
     val pin: String = "",
     val result: LockResult = LockResult.Idle,
     val canUseBiometrics: Boolean = false,
-    val pinConfigured: Boolean = true
+    val pinConfigured: Boolean = true,
+    val faceEnrolled: Boolean = false,
+    /** Coincidencias acumuladas en la ventana actual (para el indicador x/3). */
+    val faceMatches: Int = 0
 )
 
 /** Resultado del intento de desbloqueo de una app protegida. */

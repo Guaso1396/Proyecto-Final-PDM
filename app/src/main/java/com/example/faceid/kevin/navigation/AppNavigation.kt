@@ -14,6 +14,7 @@ import androidx.navigation.navArgument
 import com.example.faceid.diana.authentication.ChangePinScreen
 import com.example.faceid.diana.authentication.CreatePinScreen
 import com.example.faceid.diana.authentication.EnterPinScreen
+import com.example.faceid.diana.face.FaceEnrollmentScreen
 import com.example.faceid.fabian.apps.AppsScreen
 import com.example.faceid.ganan.lock.LockScreen
 import com.example.faceid.kevin.home.HomeScreen
@@ -24,6 +25,7 @@ object Routes {
     const val ENTER_PIN = "enterPin"
     const val CREATE_PIN = "createPin"
     const val CHANGE_PIN = "changePin"
+    const val FACE_ENROLL = "faceEnroll"
     const val LOCK_WITH_APP = "lock/{packageName}"
 
     fun lock(packageName: String) = "lock/$packageName"
@@ -84,6 +86,12 @@ fun AppNavigation() {
         composable(Routes.CHANGE_PIN) {
             ChangePinScreen(
                 onSuccess = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.FACE_ENROLL) {
+            FaceEnrollmentScreen(
+                onEnrollmentComplete = { navController.popBackStack() },
                 onBack = { navController.popBackStack() }
             )
         }

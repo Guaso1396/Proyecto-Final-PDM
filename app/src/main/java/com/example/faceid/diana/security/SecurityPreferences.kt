@@ -40,9 +40,23 @@ class SecurityPreferences(context: Context) {
         prefs.edit { putBoolean(KEY_BIOMETRICS, enabled) }
     }
 
+    /** Vector de embedding del rostro registrado (CSV de floats), o null. */
+    fun getFaceEmbedding(): String? {
+        return prefs.getString(KEY_FACE_EMBEDDING, null)
+    }
+
+    fun saveFaceEmbedding(value: String) {
+        prefs.edit(commit = true) { putString(KEY_FACE_EMBEDDING, value) }
+    }
+
+    fun clearFaceEmbedding() {
+        prefs.edit(commit = true) { remove(KEY_FACE_EMBEDDING) }
+    }
+
     companion object {
         private const val PREFS_NAME = "diana_security"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_BIOMETRICS = "biometrics_enabled"
+        private const val KEY_FACE_EMBEDDING = "face_embedding"
     }
 }
